@@ -21,10 +21,6 @@ from scrapy.http import Response, Request
 # local
 # # scrapy-item
 from scraper_js.goosebumps.items import GoosebumpsLinkItem
-# # utils
-# from reaper.lib.utils import printer as prn
-# # config
-# from reaper.core import config as cfg
 
 
 # pylint: disable = abstract-method
@@ -77,14 +73,12 @@ class LarvaeSpider(CrawlSpider):
                 raise TypeError('Unable to set cookies')
         else:
             self.headers = None
-        # terminal live status
-        # self.term_stats: prn.Status = kw.get('term_stats') or prn.live_stats_
+
         self.unique_urls = set(self.start_urls)
         self.link_list = []
 
     def start_requests(self) -> Generator[Request, None, None]:
         """Start scrapy requests"""
-        # self.term_stats.update('Starting scrapy requests')
         sleep(0.13)
         for url_ in self.start_urls:
             yield Request(
@@ -99,7 +93,6 @@ class LarvaeSpider(CrawlSpider):
         GoosebumpsLinkItem | Request, None, None
     ]:
         """Parse scrapy items"""
-        # self.term_stats.update('Parsing scraped items')
         sleep(0.13)
         with suppress(AttributeError):
             # masks error when url points to non-text entities
@@ -117,7 +110,6 @@ class LarvaeSpider(CrawlSpider):
                         )
                         yield link_item  # yields link-item to the pipeline
                     self.unique_urls.add(link.url)
-                    # self.term_stats.update(f'Following {link.url}')
                     sleep(0.13)
                     yield response.follow(
                         url=link.url,
