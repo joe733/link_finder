@@ -136,3 +136,6 @@ dump/
 
 # VS Code
 .vscode/
+
+# browser cache
+cache/

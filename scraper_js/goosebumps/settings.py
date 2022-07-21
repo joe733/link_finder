@@ -12,6 +12,7 @@ commonly used. You can find more settings consulting the documentation:
 # from logging import ERROR
 
 # local
+from .middlewares import OffsiteSpiderMiddleware
 from .pipelines import GoosebumpsPipeline
 
 BOT_NAME = 'goosebumps'
@@ -51,14 +52,14 @@ ROBOTSTXT_OBEY = True
 
 # Enable or disable spider middlewares
 # See https://docs.scrapy.org/en/latest/topics/spider-middleware.html
-# SPIDER_MIDDLEWARES = {
-#    'goosebumps.middlewares.GoosebumpsSpiderMiddleware': 543,
-# }
+SPIDER_MIDDLEWARES = {
+    OffsiteSpiderMiddleware: 543,
+}
 
 # Enable or disable downloader middlewares
 # See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
 # DOWNLOADER_MIDDLEWARES = {
-#    'goosebumps.middlewares.GoosebumpsDownloaderMiddleware': 543,
+#     'scraper_js.goosebumps.middlewares.OffsiteDownloaderMiddleware': 543,
 # }
 
 # Enable or disable extensions
@@ -75,7 +76,7 @@ ITEM_PIPELINES = {
 
 # Enable and configure the AutoThrottle extension (disabled by default)
 # See https://docs.scrapy.org/en/latest/topics/autothrottle.html
-#AUTOTHROTTLE_ENABLED = True
+AUTOTHROTTLE_ENABLED = True
 # The initial download delay
 #AUTOTHROTTLE_START_DELAY = 5
 # The maximum download delay to be set in case of high latencies
@@ -108,8 +109,9 @@ DOWNLOAD_HANDLERS = {
     'https': 'scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler',
 }
 # pylint: disable = unnecessary-lambda-assignment
-# PLAYWRIGHT_ABORT_REQUEST = (lambda req: req.resource_type == 'image')
-PLAYWRIGHT_ACCEPT_REQUEST_PREDICATE = (
-    lambda req: req.resource_type not in ('image', 'script')
-)
+# https://playwright.dev/python/docs/api/class-request#request-resource-type
+# PLAYWRIGHT_ABORT_REQUEST = ( # NOTE: this causes async task to fail!
+#     lambda req: req.resource_type in ('script', 'stylesheet', 'media')
+# )
 # pylint: enable = unnecessary-lambda-assignment
+# PLAYWRIGHT_DEFAULT_NAVIGATION_TIMEOUT = 100000

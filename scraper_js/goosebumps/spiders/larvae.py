@@ -10,6 +10,7 @@ mistakes, if any.
 # standard
 from typing import Generator, Sequence
 from contextlib import suppress
+from platform import system
 from time import sleep
 
 # pypi
@@ -77,6 +78,20 @@ class LarvaeSpider(CrawlSpider):
         self.unique_urls = set(self.start_urls)
         self.link_list = []
 
+        # request meta config
+        self.rq_meta = {
+            'dont_merge_cookies': True,
+            'handle_httpstatus_list': [404, 302],
+            'playwright': system().lower() in {'linux', 'darwin'},
+            'playwright_context': 'new_local',
+            'playwright_context_kwargs': {
+                'user_data_dir': kw.get('cache'),
+                # 'stored_state': kw.get('stored'),
+                'ignore_https_errors': True,
+            },
+            'playwright_page': kw.get('page'),
+        }
+
     def start_requests(self) -> Generator[Request, None, None]:
         """Start scrapy requests"""
         sleep(0.13)
@@ -86,7 +101,7 @@ class LarvaeSpider(CrawlSpider):
                 headers=self.headers,
                 callback=self.parse_item,
                 dont_filter=True,
-                meta={'playwright': True}
+                meta=self.rq_meta
             )
 
     def parse_item(self, response: Response) -> Generator[
@@ -116,5 +131,5 @@ class LarvaeSpider(CrawlSpider):
                         headers=self.headers,
                         callback=self.parse_item,
                         dont_filter=True,
-                        meta={'playwright': True}
+                        meta=self.rq_meta
                     )
