@@ -18,6 +18,7 @@ from scrapy.linkextractors import LinkExtractor, IGNORED_EXTENSIONS
 from scrapy.dupefilters import RFPDupeFilter
 from scrapy.spiders import CrawlSpider, Rule
 from scrapy.http import Response, Request
+from loguru import logger
 
 # local
 # # scrapy-item
@@ -66,14 +67,21 @@ class LarvaeSpider(CrawlSpider):
             ),
         )
 
+        self.headers = None
         # cookies if required
         if cks := kw.get('cookie'):
-            if isinstance(cks, str):
-                self.headers = {'cookie': cks}
-            else:
+            if not isinstance(cks, str):
                 raise TypeError('Unable to set cookies')
-        else:
-            self.headers = None
+            self.headers = {'cookie': cks}
+
+        # user-agent if required
+        if usr_agt := kw.get('user_agent'):
+            if not isinstance(usr_agt, str):
+                raise TypeError('Unable to set user-agent')
+            if not self.headers:
+                self.headers = {'User-Agent': usr_agt}
+            else:
+                self.headers.update({'User-Agent': usr_agt})
 
         self.unique_urls = set(self.start_urls)
         self.link_list = []
@@ -85,8 +93,8 @@ class LarvaeSpider(CrawlSpider):
             'playwright': system().lower() in {'linux', 'darwin'},
             'playwright_context': 'new_local',
             'playwright_context_kwargs': {
-                'user_data_dir': kw.get('cache'),
-                # 'stored_state': kw.get('stored'),
+                # 'user_data_dir': kw.get('cache_dir'),
+                'stored_state': kw.get('file_store'),
                 'ignore_https_errors': True,
             },
             'playwright_page': kw.get('page'),
@@ -101,10 +109,11 @@ class LarvaeSpider(CrawlSpider):
                 headers=self.headers,
                 callback=self.parse_item,
                 dont_filter=True,
-                meta=self.rq_meta
+                meta=self.rq_meta,
+                errback=self.error_back,
             )
 
-    def parse_item(self, response: Response) -> Generator[
+    async def parse_item(self, response: Response) -> Generator[
         GoosebumpsLinkItem | Request, None, None
     ]:
         """Parse scrapy items"""
@@ -131,5 +140,15 @@ class LarvaeSpider(CrawlSpider):
                         headers=self.headers,
                         callback=self.parse_item,
                         dont_filter=True,
-                        meta=self.rq_meta
+                        meta=self.rq_meta,
+                        errback=self.error_back,
+
                     )
+
+    def error_back(self, failure):
+        """Catch and display errors gracefully"""
+        logger.error(
+            f'{type(failure.value).__name__} •'
+            + f' {failure.request} •'
+            + f' {failure.value}'
+        )

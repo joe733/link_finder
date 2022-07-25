@@ -10,6 +10,10 @@ commonly used. You can find more settings consulting the documentation:
 
 # standard
 # from logging import ERROR
+# from random import choice
+
+# external
+# from faker import Faker
 
 # local
 from .middlewares import OffsiteSpiderMiddleware
@@ -20,9 +24,11 @@ BOT_NAME = 'goosebumps'
 SPIDER_MODULES = ['scraper_js.goosebumps.spiders']
 NEWSPIDER_MODULE = 'scraper_js.goosebumps.spiders'
 
+# fake = Faker()
+# Faker.seed(0)
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
-#USER_AGENT = 'goosebumps (+http://www.yourdomain.com)'
+# USER_AGENT = choice([fake.user_agent() for _ in range(5)])
 
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = True

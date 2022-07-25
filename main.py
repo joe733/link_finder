@@ -4,6 +4,7 @@ Main crawler runner
 
 # standard
 from urllib.parse import urlparse
+from random import choice
 from pathlib import Path
 import asyncio
 import sys
@@ -17,6 +18,8 @@ from scrapy.crawler import CrawlerProcess
 from playwright.async_api import async_playwright, TimeoutError as PlwTimErr, Page
 # # logger
 from loguru import logger
+# # faker
+from faker import Faker
 # # nested asyncio
 import nest_asyncio
 
@@ -40,8 +43,13 @@ brw_cxt_store: Path = Path(browser_cache, 'cxt_store.json')
 # patch asyncio
 nest_asyncio.apply()
 
+fake = Faker()
+Faker.seed(0)
 
-def scrapy_process(s_url: str, page: Page):
+header_ = {'User-Agent': choice([fake.user_agent() for _ in range(5)])}
+
+
+async def scrapy_process(s_url: str, page: Page):
     """Scrapy process"""
     n_loc = urlparse(s_url).netloc
     f_pth = n_loc.replace('.', '-')
@@ -54,9 +62,10 @@ def scrapy_process(s_url: str, page: Page):
         LarvaeSpider,
         allowed_domains=[n_loc, ],
         start_urls=[s_url, ],
+        user_agent=header_['User-Agent'],
         file_path=f'dump/{f_pth}.txt',
-        # stored_state=brw_cxt_store,
-        cache=browser_cache,
+        file_store=brw_cxt_store,
+        # cache_dir=browser_cache,
         page=page
     )
     logger.debug('Starting crawler')
@@ -85,12 +94,14 @@ async def playwright_process():
     async with async_playwright() as spw:
         try:
             logger.debug('Starting playwright')
-            cxt_main = await spw.chromium.launch_persistent_context(
-                user_data_dir=browser_cache,
-                ignore_https_errors=True,
+            logger.trace('Instantiating browser')
+            brw = await spw.webkit.launch(  # launch_persistent_context(  # launch(
+                # user_data_dir=browser_cache,
+                # ignore_https_errors=True,
             )
-            # logger.trace('Creating new browser context')
-            # cxt_main = await brw.new_context(ignore_https_errors=True)
+            logger.trace('Creating new context')
+            cxt_main = await brw.new_context(ignore_https_errors=True)
+            await cxt_main.set_extra_http_headers(header_)
             logger.trace('Opening new page')
             page = await cxt_main.new_page()
             logger.trace(f'Navigating to "{url}"')
@@ -99,9 +110,9 @@ async def playwright_process():
             home_page = await login_action(page)
             logger.success(f'login successful @ "{home_page.url}"')
             await cxt_main.storage_state(path=brw_cxt_store)
-            scrapy_process(home_page.url, home_page)
+            await scrapy_process(home_page.url, home_page)
             await cxt_main.close()
-            # await brw.close()
+            await brw.close()
         except PlwTimErr as err:
             logger.error(f'{err}')
 
