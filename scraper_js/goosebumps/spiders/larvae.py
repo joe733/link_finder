@@ -11,7 +11,6 @@ mistakes, if any.
 from typing import Generator, Sequence
 from contextlib import suppress
 from platform import system
-from time import sleep
 
 # pypi
 # # scrapy
@@ -104,13 +103,11 @@ class LarvaeSpider(CrawlSpider):
 
     def start_requests(self) -> Generator[Request, None, None]:
         """Start scrapy requests"""
-        sleep(0.13)
         for url_ in self.start_urls:
             yield Request(
                 url=url_,
                 headers=self.headers or None,
                 callback=self.parse_item,
-                dont_filter=True,
                 meta=self.rq_meta,
                 errback=self.spider_error,
             )
@@ -119,7 +116,6 @@ class LarvaeSpider(CrawlSpider):
         GoosebumpsLinkItem | Request, None, None
     ]:
         """Parse scrapy items"""
-        sleep(0.13)
         with suppress(AttributeError):
             # masks error when url points to non-text entities
             for link in self.lnk_xtr.extract_links(response):
@@ -137,12 +133,10 @@ class LarvaeSpider(CrawlSpider):
                         )
                         yield link_item  # yields link-item to the pipeline
                     self.unique_urls.add(cz_url)
-                    sleep(0.13)
                     yield response.follow(
                         url=link.url,
                         headers=self.headers or None,
                         callback=self.parse_item,
-                        dont_filter=True,
                         meta=self.rq_meta,
                         errback=self.spider_error,
                     )
