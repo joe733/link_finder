@@ -10,12 +10,12 @@ import asyncio
 import sys
 
 # pypi
+# # playwright
+from playwright.async_api import async_playwright, TimeoutError as PlwTimErr, Page
 # # scrapy
 from scrapy.utils.reactor import install_reactor
 from scrapy.utils.project import Settings
 from scrapy.crawler import CrawlerProcess
-# # playwright
-from playwright.async_api import async_playwright, TimeoutError as PlwTimErr, Page
 # # logger
 from loguru import logger
 # # faker
@@ -49,7 +49,7 @@ Faker.seed(0)
 header_ = {'User-Agent': choice([fake.user_agent() for _ in range(5)])}
 
 
-async def scrapy_process(s_url: str, page: Page):
+def scrapy_process(s_url: str, page: Page):
     """Scrapy process"""
     n_loc = urlparse(s_url).netloc
     f_pth = n_loc.replace('.', '-')
@@ -63,7 +63,7 @@ async def scrapy_process(s_url: str, page: Page):
         allowed_domains=[n_loc, ],
         start_urls=[s_url, ],
         user_agent=header_['User-Agent'],
-        file_path=f'dump/{f_pth}.txt',
+        url_dump_path=f'dump/{f_pth}.txt',
         file_store=brw_cxt_store,
         # cache_dir=browser_cache,
         page=page
@@ -87,17 +87,14 @@ async def login_action(page: Page) -> Page:
 async def playwright_process():
     """Playwright process"""
     url = 'https://demo.testfire.net/login.jsp'
-    # 'https://www.kennedy-center.org/'
-    # https://windowwonderland.withgoogle.com/
-    # https://www.villesetpaysages.fr/
-    # 'https://books.toscrape.com/'
-    async with async_playwright() as spw:
-        try:
+    try:
+        async with async_playwright() as spw:
             logger.debug('Starting playwright')
             logger.trace('Instantiating browser')
-            brw = await spw.webkit.launch(  # launch_persistent_context(  # launch(
+            brw = await spw.chromium.launch(  # launch_persistent_context(  # launch(
                 # user_data_dir=browser_cache,
                 # ignore_https_errors=True,
+                # headless=False,
             )
             logger.trace('Creating new context')
             cxt_main = await brw.new_context(ignore_https_errors=True)
@@ -110,11 +107,11 @@ async def playwright_process():
             home_page = await login_action(page)
             logger.success(f'login successful @ "{home_page.url}"')
             await cxt_main.storage_state(path=brw_cxt_store)
-            await scrapy_process(home_page.url, home_page)
+            scrapy_process(home_page.url, home_page)
             await cxt_main.close()
             await brw.close()
-        except PlwTimErr as err:
-            logger.error(f'{err}')
+    except (PlwTimErr, KeyboardInterrupt) as err:
+        logger.error(f'{err}\n\nAborted.')
 
 
 logger.remove()

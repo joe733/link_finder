@@ -27,7 +27,7 @@ class GoosebumpsPipeline:
         """When spider is opened"""
         file_path: Path = Path(
             flp if (
-                flp := getattr(spider, 'file_path', None)
+                flp := getattr(spider, 'url_dump_path', None)
             ) else 'default-url-dump.txt'
         )
         self.file = file_path.open(

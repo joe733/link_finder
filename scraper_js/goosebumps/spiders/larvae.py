@@ -14,10 +14,15 @@ from platform import system
 from time import sleep
 
 # pypi
+# # scrapy
 from scrapy.linkextractors import LinkExtractor, IGNORED_EXTENSIONS
+from scrapy.utils.url import canonicalize_url
 from scrapy.dupefilters import RFPDupeFilter
 from scrapy.spiders import CrawlSpider, Rule
 from scrapy.http import Response, Request
+# # twisted
+from twisted.python.failure import Failure  # just for typing
+# # loguru
 from loguru import logger
 
 # local
@@ -67,21 +72,18 @@ class LarvaeSpider(CrawlSpider):
             ),
         )
 
-        self.headers = None
+        self.headers = {}
         # cookies if required
         if cks := kw.get('cookie'):
             if not isinstance(cks, str):
                 raise TypeError('Unable to set cookies')
-            self.headers = {'cookie': cks}
+            self.headers['cookie'] = cks
 
         # user-agent if required
         if usr_agt := kw.get('user_agent'):
             if not isinstance(usr_agt, str):
                 raise TypeError('Unable to set user-agent')
-            if not self.headers:
-                self.headers = {'User-Agent': usr_agt}
-            else:
-                self.headers.update({'User-Agent': usr_agt})
+            self.headers['User-Agent'] = usr_agt
 
         self.unique_urls = set(self.start_urls)
         self.link_list = []
@@ -106,14 +108,14 @@ class LarvaeSpider(CrawlSpider):
         for url_ in self.start_urls:
             yield Request(
                 url=url_,
-                headers=self.headers,
+                headers=self.headers or None,
                 callback=self.parse_item,
                 dont_filter=True,
                 meta=self.rq_meta,
-                errback=self.error_back,
+                errback=self.spider_error,
             )
 
-    async def parse_item(self, response: Response) -> Generator[
+    def parse_item(self, response: Response) -> Generator[
         GoosebumpsLinkItem | Request, None, None
     ]:
         """Parse scrapy items"""
@@ -121,11 +123,12 @@ class LarvaeSpider(CrawlSpider):
         with suppress(AttributeError):
             # masks error when url points to non-text entities
             for link in self.lnk_xtr.extract_links(response):
-                if link.url not in self.unique_urls:
+                cz_url = str(canonicalize_url(link.url)).rstrip('/')
+                if cz_url not in self.unique_urls:
                     if response.status == 200:
                         self.link_list.append(
                             link_item := GoosebumpsLinkItem(
-                                url=link.url,
+                                url=cz_url,
                                 status_code=response.status,
                                 text=link.text,
                                 fragment=link.fragment,
@@ -133,22 +136,22 @@ class LarvaeSpider(CrawlSpider):
                             )
                         )
                         yield link_item  # yields link-item to the pipeline
-                    self.unique_urls.add(link.url)
+                    self.unique_urls.add(cz_url)
                     sleep(0.13)
                     yield response.follow(
                         url=link.url,
-                        headers=self.headers,
+                        headers=self.headers or None,
                         callback=self.parse_item,
                         dont_filter=True,
                         meta=self.rq_meta,
-                        errback=self.error_back,
-
+                        errback=self.spider_error,
                     )
 
-    def error_back(self, failure):
+    def spider_error(self, failure: Failure):
         """Catch and display errors gracefully"""
         logger.error(
             f'{type(failure.value).__name__} •'
             + f' {failure.request} •'
-            + f' {failure.value}'
+            + f' {failure.value}\n'
+            + f' {failure.getTraceback()}'
         )
