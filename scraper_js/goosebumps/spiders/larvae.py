@@ -13,6 +13,8 @@ from contextlib import suppress
 from platform import system
 
 # pypi
+# # playwright
+from playwright._impl._api_types import Error as PlaywrightAPIError
 # # scrapy
 from scrapy.linkextractors import LinkExtractor, IGNORED_EXTENSIONS
 from scrapy.utils.url import canonicalize_url
@@ -90,15 +92,12 @@ class LarvaeSpider(CrawlSpider):
         # request meta config
         self.rq_meta = {
             'dont_merge_cookies': True,
-            'handle_httpstatus_list': [404, 302],
+            'handle_httpstatus_list': [302, 403, 404],
             'playwright': system().lower() in {'linux', 'darwin'},
-            'playwright_context': 'new_local',
             'playwright_context_kwargs': {
-                # 'user_data_dir': kw.get('cache_dir'),
-                'stored_state': kw.get('file_store'),
+                'storage_state': kw.get('file_store'),
                 'ignore_https_errors': True,
             },
-            'playwright_page': kw.get('page'),
         }
 
     def start_requests(self) -> Generator[Request, None, None]:
@@ -128,24 +127,27 @@ class LarvaeSpider(CrawlSpider):
                                 status_code=response.status,
                                 text=link.text,
                                 fragment=link.fragment,
-                                nofollow=link.nofollow
+                                nofollow=link.nofollow,
                             )
                         )
                         yield link_item  # yields link-item to the pipeline
                     self.unique_urls.add(cz_url)
-                    yield response.follow(
-                        url=link.url,
-                        headers=self.headers or None,
-                        callback=self.parse_item,
-                        meta=self.rq_meta,
-                        errback=self.spider_error,
-                    )
+                yield response.follow(
+                    url=link.url,
+                    headers=self.headers or None,
+                    callback=self.parse_item,
+                    meta={'playwright': True, 'referer': response.url},
+                    errback=self.spider_error,
+                )
 
     def spider_error(self, failure: Failure):
         """Catch and display errors gracefully"""
-        logger.error(
-            f'{type(failure.value).__name__} •'
+
+        logger.warning(
+            f'{failure} •' if isinstance(failure, PlaywrightAPIError)
+            else f'Response: [HTTP {failure.value.response.status}] •'
+            + f' {type(failure.value).__name__} •'
             + f' {failure.request} •'
             + f' {failure.value}\n'
-            + f' {failure.getTraceback()}'
+            # + f' {failure.getTraceback()}'
         )

@@ -12,7 +12,9 @@ from pathlib import Path
 
 # pypi
 from scrapy.spiders import Spider
-from scrapy.item import Item
+
+# local
+from .items import GoosebumpsLinkItem
 
 
 class GoosebumpsPipeline:
@@ -40,7 +42,7 @@ class GoosebumpsPipeline:
         self.file.close()
         del spider
 
-    def process_item(self, item: Item, spider: Spider) -> Item:
+    def process_item(self, item: GoosebumpsLinkItem, spider: Spider) -> GoosebumpsLinkItem:
         """Write processed item to file"""
         self.file.write(f'{item.url}\n')
         del spider
